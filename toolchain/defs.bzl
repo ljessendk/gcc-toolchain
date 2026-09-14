@@ -93,6 +93,11 @@ def _gcc_toolchain_impl(rctx):
     elif target_arch == ARCHS.x86_64:
         include_prefix = "x86_64-linux/"
 
+    rctx.symlink(
+        "libexec/gcc/{}{}/liblto_plugin.so".format(include_prefix, rctx.attr.gcc_version),
+        "lib/bfd-plugins/liblto_plugin.so",
+    )
+
     c_builtin_includes = [
         include.format(
             gcc_version = rctx.attr.gcc_version,
@@ -1050,7 +1055,9 @@ filegroup(
         "bin/{binary_prefix}cpp",
         "bin/{binary_prefix}g++",
         "bin/{binary_prefix}gcc",
+        "bin/{binary_prefix}as",
 {fortran_bin_gfortran}
+        "xbin/as",
         "xbin/cpp",
         "xbin/g++",
         "xbin/gcc",
@@ -1078,6 +1085,7 @@ filegroup(
     srcs = [
         ":ar",
         "xbin/ar",
+        "lib/bfd-plugins/liblto_plugin.so",
     ],
     visibility = ["//visibility:public"],
 )
