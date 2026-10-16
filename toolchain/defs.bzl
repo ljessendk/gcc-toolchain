@@ -268,6 +268,10 @@ def _gcc_toolchain_impl(rctx):
         extra_ldflags = _format_flags(extra_ldflags),
         extra_asmflags = _format_flags(extra_asmflags),
 
+        # Features
+        extra_enabled_features = [str(feature_label) for feature_label in rctx.attr.extra_enabled_features],
+        extra_known_features = [str(feature_label) for feature_label in rctx.attr.extra_known_features],
+
         # cc_toolchain attributes
         supports_param_files = 1 if rctx.attr.supports_param_files else 0,
 
@@ -437,6 +441,24 @@ _FEATURE_ATTRS = {
         doc = "Extra flags for the assembly preprocessor.",
         default = [],
     ),
+    "extra_enabled_features": attr.label_list(
+        doc = ("Extra `cc_feature` features to add to this toolchain in an initially " +
+               "enabled state. This attribute has limited integration with `cc_feature`, " +
+               "and does not run additional correctness checks or handle things like `data` " +
+               "files. This is only offered as a migration bridge for projects transitioning " +
+               "to rule-based toolchain configurations, or sharing of simple argument sets " +
+               "with older toolchains."),
+        default = [],
+    ),
+    "extra_known_features": attr.label_list(
+        doc = ("Extra `cc_feature` features to add to this toolchain in an initially " +
+               "disabled state. This attribute has limited integration with `cc_feature`, " +
+               "and does not run additional correctness checks or handle things like `data` " +
+               "files. This is only offered as a migration bridge for projects transitioning " +
+               "to rule-based toolchain configurations, or sharing of simple argument sets " +
+               "with older toolchains."),
+        default = [],
+    ),
     "supports_param_files": attr.bool(
         doc = "Set `supports_param_files = 1` on the generated `cc_toolchain`," +
               " which lets Bazel pass linker arguments via an `@params` file." +
@@ -482,6 +504,12 @@ _TOOLCHAIN_DECLARATION_ATTRS = {
         doc = "Additional constraint_values appended to target_compatible_with of the toolchain," +
               " on top of the values from the target_compatible_with attribute (including its defaults)." +
               " Unlike target_compatible_with, {target_arch} is not rendered.",
+        mandatory = False,
+    ),
+    "extra_target_settings": attr.label_list(
+        doc = "Additional config_settings appended to target_settings of the toolchain, on top of" +
+              " the GCC version selection and the target_settings attribute." +
+              " Unlike target_settings, {target_arch} is not rendered.",
         mandatory = False,
     ),
     "target_compatible_with": attr.string_list(
@@ -530,6 +558,7 @@ def _gcc_toolchains_hub_impl(rctx):
         v.format(target_arch = target_arch)
         for v in rctx.attr.target_settings
     ]
+    extra_target_settings.extend([str(c) for c in rctx.attr.extra_target_settings])
 
     toolchain_repos = rctx.attr.toolchain_repos
     default_gcc_version = rctx.attr.default_gcc_version
@@ -645,7 +674,10 @@ ATTRS_SHARED_WITH_MODULE_EXTENSION = {
         "extra_ldflags",
         "extra_fflags",
         "extra_asmflags",
+        "extra_enabled_features",
+        "extra_known_features",
         "extra_target_compatible_with",
+        "extra_target_settings",
         "supports_param_files",
     ]
 }
@@ -761,6 +793,10 @@ def gcc_declare_toolchain(
             `target_settings`: Additional config_settings passed to `target_settings` of the
             toolchain, on top of the GCC version selection. `{target_arch}` is rendered to the
             `target_arch` argument value.
+
+            `extra_target_settings`: Additional config_settings appended to `target_settings` of
+            the toolchain, on top of the GCC version selection and the `target_settings` argument.
+            Unlike `target_settings`, `{target_arch}` is not rendered.
     """
     binary_prefix = kwargs.pop("binary_prefix", None)
     if binary_prefix == None:
@@ -774,6 +810,7 @@ def gcc_declare_toolchain(
     extra_target_compatible_with = kwargs.pop("extra_target_compatible_with", [])
     target_compatible_with = kwargs.pop("target_compatible_with", None)
     target_settings = kwargs.pop("target_settings", [])
+    extra_target_settings = kwargs.pop("extra_target_settings", [])
 
     # Left in kwargs so that the per-version repositories keep receiving it.
     repo_mapping = kwargs.get("repo_mapping", None)
@@ -783,6 +820,8 @@ def gcc_declare_toolchain(
     extra_fflags = kwargs.pop("extra_fflags", [])
     extra_ldflags = kwargs.pop("extra_ldflags", [])
     extra_asmflags = kwargs.pop("extra_asmflags", [])
+    extra_enabled_features = kwargs.pop("extra_enabled_features", [])
+    extra_known_features = kwargs.pop("extra_known_features", [])
     includes = kwargs.pop("includes", [])
     fincludes = kwargs.pop("fincludes", [])
 
@@ -799,6 +838,8 @@ def gcc_declare_toolchain(
             extra_fflags = extra_fflags,
             extra_ldflags = extra_ldflags,
             extra_asmflags = extra_asmflags,
+            extra_enabled_features = extra_enabled_features,
+            extra_known_features = extra_known_features,
             includes = includes,
             fincludes = fincludes,
             gcc_version = gcc_version,
@@ -824,6 +865,7 @@ def gcc_declare_toolchain(
         default_gcc_version = default_gcc_version,
         enable_fortran = enable_fortran,
         extra_target_compatible_with = extra_target_compatible_with,
+        extra_target_settings = extra_target_settings,
         target_arch = target_arch,
         target_settings = target_settings,
         toolchain_repos = toolchain_repos,
@@ -958,6 +1000,8 @@ cc_toolchain_config(
     extra_fflags = {extra_fflags},
     extra_ldflags = {extra_ldflags},
     extra_asmflags = {extra_asmflags},
+    extra_enabled_features = {extra_enabled_features},
+    extra_known_features = {extra_known_features},
     tool_paths = tool_paths,
 )
 
